@@ -11,12 +11,12 @@ jobs:
     <<: *defaultimage
     steps:
       - checkout
-      - npm i
+      - run: npm i
       - save_cache:
           keys: "npm_package"
           paths:
             - /src/node_modules
-      - npm run lint
+      - run: npm run lint
       - run:
           name: "Fail steps"
           command: echo "Job failed & on fail called"
@@ -28,7 +28,7 @@ jobs:
       - checkout
       - restore_cache:
           keys: "npm_package"
-      - npm i
+      - run: npm i
       - run: npm run test
 
   analyze:
