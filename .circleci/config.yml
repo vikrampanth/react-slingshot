@@ -1,78 +1,51 @@
 # Use the latest 2.1 version of CircleCI pipeline process engine. See: https://circleci.com/docs/2.0/configuration-reference
 version: 2.1
 
-commands:
-  sayhello:
-    description: "test parameter command"
-    parameters:
-      to:
-        type: string
-        default: "Hello"
-      id:
-        type: string
-    steps:
-      - run: echo "My own commond say -  << parameters.to >>"
-      - run: echo ${CIRCLE_WORKFLOW_ID}
-      - run: echo << parameters.id >>
-
 defaultimage: &defaultimage
   docker:
     - image: circleci/node:13.8.0
 
-# Orchestrate or schedule a set of jobs
 jobs:
 
-  fail_job:
+  build:
     <<: *defaultimage
-    steps:
-      - run: return 1
-      - run:
-          name: "Fail steps"
-          command: |
-            echo "Job failed & on fail called"
-          when: on_fail
-
-  save_hello_world_output:
-    <<: *defaultimage
-    steps:
-      - sayhello:
-          id: << pipeline.id >>
-      - run:
-          name: "Persist file"
-          command: |
-            mkdir /tmp/workspace
-            echo "text to output here" > /tmp/workspace/output.txt
-      - persist_to_workspace:
-          root: /tmp/workspace
-          paths:
-            - output.txt
-
-  print_output_file:
-    <<: *defaultimage
-    steps:
-      - attach_workspace:
-          at: /tmp/workspace
-      - run: cat /tmp/workspace/output.txt
-
-  printenvironmentvariable:
-    docker:
-      - image: cimg/base:2020.01
     steps:
       - checkout
+      - npm i
+      - save_cache:
+          keys: "npm_package"
+          paths:
+            - /src/node_modules
+      - npm run lint
       - run:
-          name: "echo an env var that is part of our project"
-          command: |
-            echo $USER_NAME
+          name: "Fail steps"
+          command: echo "Job failed & on fail called"
+          when: on_fail
+
+  test:
+    <<: *defaultimage
+    steps:
+      - checkout
+      - restore_cache:
+          keys: "npm_package"
+      - npm i
+      - run: npm run test
+
+  analyze:
+    <<: *defaultimage
+    steps:
+      - checkout
+      - restore_cache:
+          keys: "npm_package"
+      - run: npm audit
 
 workflows:
-  # Name the workflow "welcome"
-  helloworld:
-    # Run the welcome/run job in its own container
+  ciflow:
     jobs:
-      - fail_job
-      - save_hello_world_output
-      - print_output_file:
+      - build
+      - test:
           requires:
-          - fail_job
-          - save_hello_world_output
-      - printenvironmentvariable
+          - build
+      - analyze:
+          requires:
+          - test
